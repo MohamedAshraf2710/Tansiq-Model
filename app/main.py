@@ -124,5 +124,5 @@ def predict_answer(request: InferenceRequest):
         return {"status": "success", "answer": ai_response, "wishes_75": wishes_75_list}
 
     except Exception as e:
-        logger.error(f"Critical Inference Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error occurred.")
+        logger.error(f" Critical Inference Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error occurred.") from e
