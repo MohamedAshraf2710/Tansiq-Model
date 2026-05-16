@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from app.main import app
 
-client = TestClient(app)
+client = TestClient(app=app)
 
 def test_predict_endpoint_bypass_logic():
   
