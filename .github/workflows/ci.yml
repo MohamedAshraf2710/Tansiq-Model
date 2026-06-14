@@ -1,4 +1,4 @@
-name: Tansiq MLOps Continuous Integration
+name: CI Pipeline
 
 on:
   push:
@@ -9,29 +9,31 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        working-directory: ./backend
     steps:
-    - name: Checkout Source Code
-      uses: actions/checkout@v4
-
+    - uses: actions/checkout@v4
+    
     - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
         python-version: "3.12"
-
-    - name: Install Project Dependencies
+        cache: "pip"
+        
+    - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip setuptools wheel
+        python -m pip install --upgrade pip
         pip install -r requirements.txt
-
-    - name: Run Code Linting (Pylint)
+        
+    - name: Lint with pylint
       run: |
-        pylint --disable=R,C,W,I app/*.py || true
-
-    - name: Run Automated Unit Tests (Pytest)
+        pylint --disable=R,C,W1203,W0718 app/*.py || true
+        
+    - name: Test with pytest
       env:
-       
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
       run: |
         python -m pytest -vv tests/test_main.py
+
