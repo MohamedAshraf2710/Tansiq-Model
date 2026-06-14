@@ -83,26 +83,26 @@ def sanitize_llm_input(text: str, max_len: int = 1000) -> str:
 
 @app.post("/predict")
 @limiter.limit("10/minute")
-def predict_answer(request: InferenceRequest, req: Request):
+def predict_answer(payload: InferenceRequest, request: Request):
     try:
         # Check profile variables and upsert/fallback
-        if request.student_score is not None and request.track is not None:
+        if payload.student_score is not None and payload.track is not None:
             upsert_student_profile(
-                request.session_id, request.student_score, request.student_gender or "", 
-                request.student_gov or "", request.track, request.interests or [], request.priority or ""
+                payload.session_id, payload.student_score, payload.student_gender or "", 
+                payload.student_gov or "", payload.track, payload.interests or [], payload.priority or ""
             )
         else:
-            profile = get_student_profile(request.session_id)
+            profile = get_student_profile(payload.session_id)
             if profile:
-                request.student_score = request.student_score or profile.get("student_score")
-                request.student_gender = request.student_gender or profile.get("student_gender")
-                request.student_gov = request.student_gov or profile.get("student_gov")
-                request.track = request.track or profile.get("track")
-                request.interests = request.interests or profile.get("interests", [])
-                request.priority = request.priority or profile.get("priority")
+                payload.student_score = payload.student_score or profile.get("student_score")
+                payload.student_gender = payload.student_gender or profile.get("student_gender")
+                payload.student_gov = payload.student_gov or profile.get("student_gov")
+                payload.track = payload.track or profile.get("track")
+                payload.interests = payload.interests or profile.get("interests", [])
+                payload.priority = payload.priority or profile.get("priority")
 
         # Smart context lookup
-        search_result = smart_lookup(request.question)
+        search_result = smart_lookup(payload.question)
         general_context = ""
         faculty_url = None
         if search_result["results"]:
@@ -113,15 +113,15 @@ def predict_answer(request: InferenceRequest, req: Request):
         recommender = HybridRecommender(df, df_geo, df_dist)
         
         # Guard clause for missing vital info
-        if request.student_score is None or not request.track:
+        if payload.student_score is None or not payload.track:
             missing_info_response = "أهلاً بيك يا بطل! عشان أقدر أساعدك بشكل دقيق، محتاج أعرف مجموعك كام في الثانوية العامة وإنت قسم إيه (علمي علوم ولا رياضة ولا أدبي)؟"
-            save_chat(request.session_id, request.question, missing_info_response)
+            save_chat(payload.session_id, payload.question, missing_info_response)
             return {"status": "success", "answer": missing_info_response, "wishes_75": []}
 
         recommendations = recommender.recommend(
-            student_score=request.student_score, student_gender=request.student_gender or "",
-            student_gov=request.student_gov or "", track=request.track,
-            interests=request.interests or [], priority=request.priority or "غير محدد"
+            student_score=payload.student_score, student_gender=payload.student_gender or "",
+            student_gov=payload.student_gov or "", track=payload.track,
+            interests=payload.interests or [], priority=payload.priority or "غير محدد"
         )
 
         wishes_75_list = []
@@ -134,9 +134,9 @@ def predict_answer(request: InferenceRequest, req: Request):
                     "url": str(row.get('URL', '')) if pd.notna(row.get('URL')) else ""
                 })
         
-        if not request.interests or request.priority not in ["تخصص", "محافظة"]:
+        if not payload.interests or payload.priority not in ["تخصص", "محافظة"]:
             fast_response = "أنا سعيد جدا إني بساعدك! مجموعك ما شاء الله ممتاز ومتاح ليك خيارات كتير.\nبس عشان أقدر أرتبلك الكليات بشكل دقيق يفيدك، محتاج أسألك سؤال واحد:\nهل الأهم عندك تدخل الكلية اللي بتحبها حتى لو في محافظة تانية، ولا الأهم تفضل في محافظتك؟"
-            save_chat(request.session_id, request.question, fast_response)
+            save_chat(payload.session_id, payload.question, fast_response)
             return {"status": "success", "answer": fast_response, "wishes_75": wishes_75_list}
             
         recommendation_context = ""
@@ -144,15 +144,15 @@ def predict_answer(request: InferenceRequest, req: Request):
             for _, row in recommendations.head(5).iterrows():
                 recommendation_context += f"- كلية {row.get('Faculty')} ({row.get('Governorate')}) تقبل من {row.get('Score')}\n"
         
-        priority_text = "تفضل في محافظتك" if request.priority == "محافظة" else "تدخل التخصص اللي بتحبه"
-        chat_history = get_chat_history(request.session_id)
+        priority_text = "تفضل في محافظتك" if payload.priority == "محافظة" else "تدخل التخصص اللي بتحبه"
+        chat_history = get_chat_history(payload.session_id)
         
         user_prompt = f"""
-        ### Metadata: Score={request.student_score}, Gov={request.student_gov}, Track={request.track}, Priority={priority_text}
+        ### Metadata: Score={payload.student_score}, Gov={payload.student_gov}, Track={payload.track}, Priority={priority_text}
         ### Context: {sanitize_llm_input(general_context, 500)}
         ### Top Recommendations: {recommendation_context}
         ### History: {chat_history}
-        ### Question: {sanitize_llm_input(request.question)}
+        ### Question: {sanitize_llm_input(payload.question)}
         """
 
         response = ai_client.models.generate_content(
@@ -166,10 +166,10 @@ def predict_answer(request: InferenceRequest, req: Request):
         )
         
         ai_response = response.text
-        if faculty_url and not pd.isna(faculty_url) and request.interests:
+        if faculty_url and not pd.isna(faculty_url) and payload.interests:
              ai_response += "\n\n🔗 للمزيد من التفاصيل، تفضل بزيارة الموقع الرسمي للكلية."
 
-        save_chat(request.session_id, request.question, ai_response)
+        save_chat(payload.session_id, payload.question, ai_response)
         return {"status": "success", "answer": ai_response, "wishes_75": wishes_75_list}
     except Exception as e:
         logger.error(f"Inference Error: {type(e).__name__}")
