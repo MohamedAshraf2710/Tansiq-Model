@@ -13,6 +13,30 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from bs4 import BeautifulSoup
 from sqlalchemy import text
+import ipaddress
+from urllib.parse import urlparse
+
+ALLOWED_DOMAINS = [".edu.eg", ".gov.eg", ".ac.eg", "wikipedia.org", "google.com"]
+
+def is_safe_url(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ('http', 'https'):
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        try:
+            ip = ipaddress.ip_address(hostname)
+            if ip.is_private or ip.is_loopback or ip.is_link_local:
+                return False
+        except ValueError:
+            pass
+        if any(hostname.endswith(d) for d in ALLOWED_DOMAINS):
+            return True
+        return False
+    except Exception:
+        return False
 
 from app.config import settings
 from app.database import engine
@@ -42,8 +66,9 @@ def get_faculty_details(faculty_name: str) -> Optional[dict]:
                 LIMIT 1
                 """
             )
+            safe_name = faculty_name.strip().lower().replace('%', '\\%').replace('_', '\\_')
             result = conn.execute(
-                query, {"name": f"%{faculty_name.strip().lower()}%"}
+                query, {"name": f"%{safe_name}%"}
             )
             row = result.fetchone()
 
@@ -60,7 +85,7 @@ def get_faculty_details(faculty_name: str) -> Optional[dict]:
                     "source": "database",
                 }
     except Exception as e:
-        logger.error("DB lookup failed for '%s': %s", faculty_name, e)
+        logger.error("DB lookup failed for '%s': %s", faculty_name, type(e).__name__)
 
     return None
 
@@ -81,9 +106,10 @@ def search_faculties_db(keyword: str, limit: int = 10) -> list[dict]:
                 LIMIT :lim
                 """
             )
+            safe_kw = keyword.strip().lower().replace('%', '\\%').replace('_', '\\_')
             result = conn.execute(
                 query,
-                {"kw": f"%{keyword.strip().lower()}%", "lim": limit},
+                {"kw": f"%{safe_kw}%", "lim": limit},
             )
             return [
                 {
@@ -97,7 +123,7 @@ def search_faculties_db(keyword: str, limit: int = 10) -> list[dict]:
                 for r in result
             ]
     except Exception as e:
-        logger.error("DB search failed for '%s': %s", keyword, e)
+        logger.error("DB search failed for '%s': %s", keyword, type(e).__name__)
         return []
 
 # ======================================================================
@@ -120,8 +146,12 @@ _HEADERS = {
 
 def _scrape_direct_url(url: str) -> list[dict]:
     """Scrape the specific faculty URL directly."""
+    if not is_safe_url(url):
+        return []
     try:
         resp = requests.get(url, headers=_HEADERS, timeout=_REQUEST_TIMEOUT)
+        if len(resp.content) > 1_000_000:
+            return []
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
         
@@ -132,13 +162,17 @@ def _scrape_direct_url(url: str) -> list[dict]:
         if text_content:
             return [{"text": text_content[:1000], "url": url, "source": "web_direct"}]
     except Exception as e:
-        logger.warning("Direct scrape failed for URL %s: %s", url, e)
+        logger.warning("Direct scrape failed for URL %s: %s", url, type(e).__name__)
     return []
 
 def _scrape_single_url(url: str) -> list[dict]:
     results = []
+    if not is_safe_url(url):
+        return results
     try:
         resp = requests.get(url, headers=_HEADERS, timeout=_REQUEST_TIMEOUT)
+        if len(resp.content) > 1_000_000:
+            return results
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -160,7 +194,7 @@ def _scrape_single_url(url: str) -> list[dict]:
                 if len(results) >= 3:
                     break
     except Exception as e:
-        logger.warning("Search scrape failed for URL: %s", e)
+        logger.warning("Search scrape failed for URL: %s", type(e).__name__)
 
     return results
 
@@ -184,7 +218,7 @@ def scrape_web(query: str, direct_url: Optional[str] = None) -> list[dict]:
                 results = future.result(timeout=_REQUEST_TIMEOUT)
                 all_results.extend(results)
             except Exception as e:
-                logger.warning("Scrape future failed: %s", e)
+                logger.warning("Scrape future failed: %s", type(e).__name__)
 
     seen = set()
     unique = []

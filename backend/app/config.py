@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = ""
     GEMINI_API_KEY: str = ""
+    API_SECRET_KEY: str = ""
     MODEL_NAME: str = "gemini-2.0-flash"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

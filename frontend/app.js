@@ -264,6 +264,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }, waitMs);
   }
 
+  // ===== Security Utilities =====
+  function sanitizeUrl(url) {
+    try {
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol)) return '';
+      return parsed.href;
+    } catch { return ''; }
+  }
+
   // ===== Profile Management =====
   function loadProfile() {
     try {
@@ -292,13 +301,29 @@ document.addEventListener('DOMContentLoaded', () => {
   if (profileForm) {
     profileForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      
+      let govVal = safeGetElement('studentGov').value.replace(/[<>"'&]/g, '').trim().substring(0, 50);
+      let scoreVal = safeGetElement('studentScore').value;
+      const scoreNum = parseFloat(scoreVal);
+      
+      if (isNaN(scoreNum) || scoreNum < 50 || scoreNum > 420) {
+        showToast('المجموع لازم يكون بين 50 و 420', 'error');
+        return;
+      }
+      
       const profile = {
-        score: safeGetElement('studentScore').value,
+        score: scoreVal,
         track: safeGetElement('studentTrack').value,
-        gov: safeGetElement('studentGov').value,
+        gov: govVal,
         gender: safeGetElement('studentGender').value,
         priority: safeGetElement('studentPriority').value
       };
+      
+      if (!profile.track || !profile.gov || !profile.gender) {
+        showToast('من فضلك املأ كل البيانات المطلوبة', 'error');
+        return;
+      }
+
       localStorage.setItem('studentProfile', JSON.stringify(profile));
       hideProfileModal();
       showToast('تم حفظ البيانات بنجاح!', 'success', 3000);
@@ -392,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Setup Backend Payload
     if (!currentSessionId) {
-      currentSessionId = Date.now().toString();
+      currentSessionId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString() + Math.random().toString(36).substring(2);
     }
     
     const profile = loadProfile() || {};
@@ -409,9 +434,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     try {
-      const res = await fetch("http://localhost:8000/predict", {
+      const res = await fetch(window.APIConfig?.BACKEND_PROXY_URL || "http://localhost:8000/predict", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        credentials: "same-origin",
         body: JSON.stringify(payload)
       });
       
@@ -430,7 +459,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const displayLimit = Math.min(15, data.wishes_75.length);
         for (let i = 0; i < displayLimit; i++) {
           const w = data.wishes_75[i];
-          const facultyName = w.url ? `<a href="${w.url}" target="_blank">${w.faculty}</a>` : w.faculty;
+          const safeUrl = w.url ? sanitizeUrl(w.url) : '';
+          const safeFaculty = (w.faculty || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+          const facultyName = safeUrl ? `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeFaculty}</a>` : safeFaculty;
           botText += `| ${i+1} | ${facultyName} | ${w.governorate} | ${w.min_score} |\n`;
         }
         if (data.wishes_75.length > displayLimit) {

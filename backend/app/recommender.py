@@ -152,12 +152,12 @@ class HybridRecommender:
         if not self.df_geo.empty and "category" in self.df_geo.columns:
             try:
                 matches = self.df_geo[
-                    self.df_geo["educational_administration"].astype(str).str.contains(student_gov, na=False)
+                    self.df_geo["educational_administration"].astype(str).str.contains(student_gov, na=False, regex=False)
                 ]
                 if not matches.empty:
                     # We check if faculty_gov matches the university_name roughly
                     # Since faculty_gov is a governorate, and university_name has the gov name often
-                    univ_match = matches[matches["university_name"].astype(str).str.contains(faculty_gov, na=False)]
+                    univ_match = matches[matches["university_name"].astype(str).str.contains(faculty_gov, na=False, regex=False)]
                     if not univ_match.empty:
                         cat = str(univ_match.iloc[0]["category"]).strip()
                         if cat == 'أ': return 0
@@ -181,12 +181,12 @@ class HybridRecommender:
             try:
                 # Filter by origin_governorate
                 matches = self.df_dist[
-                    self.df_dist["origin_governorate"].astype(str).str.contains(student_gov, na=False)
+                    self.df_dist["origin_governorate"].astype(str).str.contains(student_gov, na=False, regex=False)
                 ]
                 if not matches.empty:
                     # Filter by destination_university (which usually contains the governorate name)
                     dest_match = matches[
-                        matches["destination_university"].astype(str).str.contains(faculty_gov, na=False)
+                        matches["destination_university"].astype(str).str.contains(faculty_gov, na=False, regex=False)
                     ]
                     if not dest_match.empty:
                         return float(dest_match.iloc[0]["distance_km"])

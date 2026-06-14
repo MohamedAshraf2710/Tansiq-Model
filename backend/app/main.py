@@ -3,9 +3,14 @@ import pandas as pd
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.database import load_initial_data, get_chat_history, save_chat, upsert_student_profile, get_student_profile
@@ -17,33 +22,68 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Tansiq ML Microservice")
 
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+    "http://localhost:8080",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-API-Key", "X-Requested-With"],
 )
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+API_KEY_HEADER = "X-API-Key"
+
+@app.middleware("http")
+async def verify_api_key(request: Request, call_next):
+    if request.url.path in ["/docs", "/openapi.json", "/redoc"]:
+        return await call_next(request)
+    api_key = request.headers.get(API_KEY_HEADER)
+    if not settings.API_SECRET_KEY or api_key == settings.API_SECRET_KEY:
+        response = await call_next(request)
+        return response
+    return JSONResponse(status_code=401, content={"detail": "Invalid API Key"})
 
 # DataOps: Load data pipelines during startup
 df, df_geo, df_dist = load_initial_data()
 ai_client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 class InferenceRequest(BaseModel):
-    session_id: str  
-    question: Optional[str] = ""
-    student_score: Optional[float] = None
-    student_gender: Optional[str] = None
-    student_gov: Optional[str] = None
-    track: Optional[str] = None
-    interests: Optional[List[str]] = []
-    priority: Optional[str] = "غير محدد"
+    session_id: str = Field(..., min_length=1, max_length=100)
+    question: Optional[str] = Field("", max_length=2000)
+    student_score: Optional[float] = Field(None, ge=0, le=420)
+    student_gender: Optional[str] = Field(None, max_length=10)
+    student_gov: Optional[str] = Field(None, max_length=50)
+    track: Optional[str] = Field(None, max_length=30)
+    interests: Optional[List[str]] = Field(default=[], max_length=20)
+    priority: Optional[str] = Field("غير محدد", max_length=20)
 
 SYSTEM_INSTRUCTION = """You are "Tansiq Assistant", a professional academic advisor helping Egyptian high school students. 
 Tone: Friendly Egyptian Arabic (عامية مصرية ودية). Close the answer with "بالتوفيق يا بطل!" and halt."""
 
+def sanitize_llm_input(text: str, max_len: int = 1000) -> str:
+    if not text:
+        return ""
+    text = text[:max_len]
+    injection_patterns = ["ignore previous", "ignore above", "system:", "assistant:", "### instruction"]
+    lower = text.lower()
+    for pat in injection_patterns:
+        if pat in lower:
+            text = text.replace(pat, "[filtered]")
+    return text.strip()
+
 @app.post("/predict")
-def predict_answer(request: InferenceRequest):
+@limiter.limit("10/minute")
+def predict_answer(request: InferenceRequest, req: Request):
     try:
         # Check profile variables and upsert/fallback
         if request.student_score is not None and request.track is not None:
@@ -109,10 +149,10 @@ def predict_answer(request: InferenceRequest):
         
         user_prompt = f"""
         ### Metadata: Score={request.student_score}, Gov={request.student_gov}, Track={request.track}, Priority={priority_text}
-        ### Context: {general_context}
+        ### Context: {sanitize_llm_input(general_context, 500)}
         ### Top Recommendations: {recommendation_context}
         ### History: {chat_history}
-        ### Question: {request.question}
+        ### Question: {sanitize_llm_input(request.question)}
         """
 
         response = ai_client.models.generate_content(
@@ -132,5 +172,5 @@ def predict_answer(request: InferenceRequest):
         save_chat(request.session_id, request.question, ai_response)
         return {"status": "success", "answer": ai_response, "wishes_75": wishes_75_list}
     except Exception as e:
-        logger.error(f"Inference Error: {str(e)}")
+        logger.error(f"Inference Error: {type(e).__name__}")
         raise HTTPException(status_code=500, detail="Internal server error.")

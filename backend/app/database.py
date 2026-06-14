@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, text
 from app.config import settings
 
 logger = logging.getLogger(__name__)
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, pool_size=5, max_overflow=10, pool_timeout=30)
 
 def load_initial_data():
     try:
@@ -22,7 +22,7 @@ def load_initial_data():
         logger.info("DataOps: Pipeline data successfully pulled from Supabase.")
         return df, df_geo, df_dist
     except Exception as e:
-        logger.error(f"DataOps Pipeline Failed: {e}")
+        logger.error(f"DataOps Pipeline Failed: {type(e).__name__}")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
 def get_chat_history(session_id: str) -> str:
@@ -65,7 +65,7 @@ def upsert_student_profile(session_id: str, score: float, gender: str, gov: str,
                 "gov": gov, "track": track, "interests": interests_json, "priority": priority
             })
     except Exception as e:
-        logger.error(f"Upsert Student Profile Failed: {e}")
+        logger.error(f"Upsert Student Profile Failed: {type(e).__name__}")
 
 def get_student_profile(session_id: str) -> dict:
     if not session_id: return {}
@@ -83,5 +83,5 @@ def get_student_profile(session_id: str) -> dict:
                     "priority": result[5]
                 }
     except Exception as e:
-        logger.error(f"Get Student Profile Failed: {e}")
+        logger.error(f"Get Student Profile Failed: {type(e).__name__}")
     return {}
