@@ -19,7 +19,7 @@ const APIConfig = (() => {
 
   // --- Configuration ---
   // Set your backend proxy URL here (NOT the AI provider's URL directly)
-  const BACKEND_PROXY_URL = '/api/chat'; // Your server endpoint
+  const BACKEND_PROXY_URL = 'http://localhost:8000/predict'; // Your server endpoint
 
   // Allowed origins for API communication
   const ALLOWED_ORIGINS = [
