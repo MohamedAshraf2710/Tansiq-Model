@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, text
 from app.config import settings
 
 logger = logging.getLogger(__name__)
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, pool_size=5, max_overflow=10, pool_timeout=30)
+engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
 
 def load_initial_data():
     try:
