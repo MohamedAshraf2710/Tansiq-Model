@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>المرشد الأكاديمي | دليلك لاختيار مستقبلك</title>
+  <meta name="description" content="مرشدك الأكاديمي الذكي - يساعد الطلاب المصريين على اختيار التخصص والكلية المناسبة بناءً على اهتماماتهم وقدراتهم" />
+  <meta name="keywords" content="مرشد أكاديمي, تخصصات جامعية, كليات مصر, تنسيق, ثانوية عامة" />
+  <meta name="theme-color" content="#0a1628" />
+
+  <!-- Security Headers (via meta tags) -->
+  <!-- CSP: Restrict resource loading to prevent XSS and injection attacks -->
+  <meta http-equiv="Content-Security-Policy" 
+    content="default-src 'self'; 
+             script-src 'self' https://unpkg.com; 
+             style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
+             font-src 'self' https://fonts.gstatic.com; 
+             img-src 'self' data: blob:; 
+             connect-src 'self' http://localhost:8000 https://localhost:8000; 
+             frame-ancestors 'none'; 
+             base-uri 'self'; 
+             form-action 'self';" />
+  <!-- Clickjacking Protection -->
+  <meta http-equiv="X-Frame-Options" content="DENY" />
+  <!-- Prevent MIME type sniffing -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <!-- Referrer Policy: Don't leak URL info -->
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+  <!-- Google Fonts: Cairo (Arabic-optimized) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Lucide Icons (via CDN with Subresource Integrity) -->
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"
+    integrity="sha384-ieG+IKD0d/ZPXyCBTMVAbqsQdns8QGJR/e26WMw7M4fkaI/rHcS/YIoi+ah9WGge"
+    crossorigin="anonymous"></script>
+
+  <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+  <!-- Background Layer -->
+  <div class="bg-layer" aria-hidden="true"></div>
+  <div class="particles" id="particles" aria-hidden="true"></div>
+
+  <!-- Sidebar Overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="app-container">
+    <!-- ===== Sidebar ===== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <img src="advisor_avatar.png" alt="المرشد الأكاديمي" class="sidebar-logo" />
+        <div class="sidebar-title-wrap">
+          <h1 class="sidebar-title">المرشد الأكاديمي</h1>
+          <span class="sidebar-subtitle">مدعوم بالذكاء الاصطناعي</span>
+        </div>
+      </div>
+
+      <!-- New Chat -->
+      <button class="new-chat-btn" id="newChatBtn" title="بدء محادثة جديدة">
+        <i data-lucide="plus-circle" style="width:18px;height:18px"></i>
+        محادثة جديدة
+      </button>
+
+      <!-- Edit Profile -->
+      <button class="edit-profile-btn" id="editProfileBtn" title="تعديل بياناتك">
+        <i data-lucide="user" style="width:18px;height:18px"></i>
+        بيانات الطالب
+      </button>
+
+      <!-- Quick Topics -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">مواضيع سريعة</div>
+        <div class="quick-topics">
+          <button class="quick-topic-btn" data-message="ما هي الكليات المتاحة لطلاب علمي علوم؟">
+            <span class="topic-icon">🔬</span>
+            <span>كليات علمي علوم</span>
+          </button>
+          <button class="quick-topic-btn" data-message="ما هي الكليات المتاحة لطلاب علمي رياضة؟">
+            <span class="topic-icon">📐</span>
+            <span>كليات علمي رياضة</span>
+          </button>
+          <button class="quick-topic-btn" data-message="ما هي الكليات المتاحة لطلاب أدبي؟">
+            <span class="topic-icon">📚</span>
+            <span>كليات القسم الأدبي</span>
+          </button>
+          <button class="quick-topic-btn" data-message="كيف أختار التخصص المناسب لي؟">
+            <span class="topic-icon">🎯</span>
+            <span>كيف أختار تخصصي؟</span>
+          </button>
+          <button class="quick-topic-btn" data-message="ما هو نظام التنسيق وكيف يعمل؟">
+            <span class="topic-icon">📋</span>
+            <span>نظام التنسيق</span>
+          </button>
+          <button class="quick-topic-btn" data-message="ما هي أفضل الجامعات الخاصة في مصر؟">
+            <span class="topic-icon">🏛️</span>
+            <span>الجامعات الخاصة</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Chat History -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">المحادثات السابقة</div>
+      </div>
+      <div class="chat-history" id="chatHistory">
+        <!-- Populated dynamically -->
+      </div>
+
+      <!-- Footer -->
+      <div class="sidebar-footer">
+        <span class="sidebar-footer-badge">BETA</span>
+        <span class="sidebar-footer-text">الإصدار ١.٠ — المرشد الأكاديمي</span>
+      </div>
+    </aside>
+
+    <!-- ===== Main Chat ===== -->
+    <main class="chat-main">
+      <!-- Sidebar Toggle (mobile) -->
+      <button class="sidebar-toggle" id="sidebarToggle" title="القائمة الجانبية">
+        <i data-lucide="panel-right-open" style="width:20px;height:20px"></i>
+      </button>
+
+      <!-- Chat Header -->
+      <header class="chat-header" id="chatHeader">
+        <div class="chat-header-right">
+          <img src="advisor_avatar.png" alt="" class="header-avatar" />
+          <div class="header-info">
+            <span class="header-name">المرشد الأكاديمي</span>
+            <span class="header-status">
+              <span class="status-dot"></span>
+              متصل الآن
+            </span>
+          </div>
+        </div>
+        <div class="chat-header-left">
+          <button class="header-action-btn" id="toggleSidebarBtn" title="إخفاء/إظهار القائمة">
+            <i data-lucide="panel-right" style="width:20px;height:20px"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Messages Container -->
+      <div class="chat-messages" id="chatMessages">
+        <!-- Welcome Screen -->
+        <div class="welcome-screen" id="welcomeScreen">
+          <img src="advisor_avatar.png" alt="المرشد الأكاديمي" class="welcome-avatar" />
+          <h2 class="welcome-title">أهلاً بيك في المرشد الأكاديمي! 👋</h2>
+          <p class="welcome-desc">
+            أنا هنا عشان أساعدك تختار الكلية والتخصص المناسب ليك.
+            اسألني عن أي حاجة — التنسيق، الكليات، التخصصات، أو حتى لو محتار ومش عارف تبدأ منين!
+          </p>
+          <div class="feature-cards" id="featureCards">
+            <div class="feature-card" data-message="محتاج مساعدة في اختيار الكلية المناسبة ليا">
+              <span class="feature-card-icon">🎓</span>
+              <div class="feature-card-title">اختيار الكلية</div>
+              <div class="feature-card-desc">ساعدني أختار الكلية الأنسب</div>
+            </div>
+            <div class="feature-card" data-message="عاوز أعرف أكتر عن تنسيق الجامعات والحد الأدنى للقبول">
+              <span class="feature-card-icon">📊</span>
+              <div class="feature-card-title">التنسيق والقبول</div>
+              <div class="feature-card-desc">معلومات عن حدود القبول</div>
+            </div>
+            <div class="feature-card" data-message="أنا محتار بين أكتر من تخصص، ممكن تساعدني أقارن بينهم؟">
+              <span class="feature-card-icon">⚖️</span>
+              <div class="feature-card-title">مقارنة التخصصات</div>
+              <div class="feature-card-desc">قارن بين التخصصات المختلفة</div>
+            </div>
+            <div class="feature-card" data-message="عاوز أعرف فرص العمل المتاحة بعد التخرج في التخصصات المختلفة">
+              <span class="feature-card-icon">💼</span>
+              <div class="feature-card-title">فرص العمل</div>
+              <div class="feature-card-desc">سوق العمل بعد التخرج</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Input -->
+      <div class="chat-input-area">
+        <div class="chat-input-wrapper" id="chatInputWrapper">
+          <textarea
+            class="chat-input"
+            id="chatInput"
+            placeholder="اكتب سؤالك هنا... 💬"
+            rows="1"
+            aria-label="اكتب رسالتك"
+          ></textarea>
+          <div class="input-actions">
+            <button class="send-btn" id="sendBtn" title="إرسال" disabled>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="chat-disclaimer">
+          المرشد الأكاديمي قد يخطئ أحياناً. تأكد من المعلومات من المصادر الرسمية.
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== Profile Modal ===== -->
+  <div class="modal-overlay" id="profileModal" aria-hidden="true">
+    <div class="modal-container">
+      <h2 class="modal-title">بيانات الطالب</h2>
+      <p class="modal-desc">علشان نطلعلك التنسيق صح، محتاجين شوية بيانات بسيطة</p>
+      <form id="profileForm">
+        <div class="form-group">
+          <label for="studentScore">المجموع (أو النسبة المئوية)</label>
+          <input type="number" id="studentScore" class="form-control" placeholder="مثال: 350 أو 85.5" required step="0.1" min="50" max="410" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="studentTrack">القسم</label>
+          <select id="studentTrack" class="form-control" required>
+            <option value="" disabled selected>اختر القسم...</option>
+            <option value="علمي علوم">علمي علوم</option>
+            <option value="علمي رياضة">علمي رياضة</option>
+            <option value="أدبي">أدبي</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="studentGov">المحافظة</label>
+          <input type="text" id="studentGov" class="form-control" placeholder="مثال: القاهرة، الإسكندرية، الدقهلية..." required autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="studentGender">النوع</label>
+          <select id="studentGender" class="form-control" required>
+            <option value="" disabled selected>اختر النوع...</option>
+            <option value="ذكر">ذكر</option>
+            <option value="أنثى">أنثى</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="studentPriority">الأولوية في الاختيار</label>
+          <select id="studentPriority" class="form-control" required>
+            <option value="تخصص">الكلية (التخصص أهم من المكان)</option>
+            <option value="محافظة">المحافظة (المكان أقرب لي أهم)</option>
+            <option value="غير محدد">توازن بين الاتنين</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary">حفظ وبدء المحادثة</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="api-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

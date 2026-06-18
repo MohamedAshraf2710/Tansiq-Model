@@ -1,0 +1,30 @@
+# ===========================
+# Security — Never commit these
+# ===========================
+.env
+.env.local
+.env.production
+.env.*.local
+*.key
+*.pem
+*.secret
+
+# API keys & credentials
+secrets/
+credentials/
+**/api-key*
+**/apikey*
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
