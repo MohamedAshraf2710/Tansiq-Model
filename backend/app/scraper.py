@@ -14,6 +14,7 @@ import requests
 from bs4 import BeautifulSoup
 from sqlalchemy import text
 import ipaddress
+import socket
 from urllib.parse import urlparse
 
 ALLOWED_DOMAINS = [".edu.eg", ".gov.eg", ".ac.eg", "wikipedia.org", "google.com"]
@@ -26,15 +27,19 @@ def is_safe_url(url: str) -> bool:
         hostname = parsed.hostname
         if not hostname:
             return False
+            
+        if not any(hostname.endswith(d) for d in ALLOWED_DOMAINS):
+            return False
+            
         try:
-            ip = ipaddress.ip_address(hostname)
-            if ip.is_private or ip.is_loopback or ip.is_link_local:
+            resolved_ip = socket.gethostbyname(hostname)
+            ip = ipaddress.ip_address(resolved_ip)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_unspecified:
                 return False
-        except ValueError:
-            pass
-        if any(hostname.endswith(d) for d in ALLOWED_DOMAINS):
-            return True
-        return False
+        except Exception:
+            return False
+            
+        return True
     except Exception:
         return False
 
@@ -202,6 +207,9 @@ def _scrape_single_url(url: str) -> list[dict]:
                                 link = match.group(1)
                             elif href.startswith("http"):
                                 link = href
+                                
+                            if link and not link.startswith("http"):
+                                link = None
 
                         results.append({"text": text_content[:500], "url": link, "source": "web_search"})
 
