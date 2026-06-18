@@ -54,7 +54,8 @@ async def verify_api_key(request: Request, call_next):
 
 # DataOps: Load data pipelines during startup
 df, df_geo, df_dist = load_initial_data()
-ai_client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+api_key_to_use = settings.GROQ_API_KEY if settings.GROQ_API_KEY else "dummy_key_for_ci"
+ai_client = AsyncGroq(api_key=api_key_to_use)
 
 class InferenceRequest(BaseModel):
     session_id: str = Field(..., min_length=1, max_length=100)
