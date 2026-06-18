@@ -1,23 +1,7 @@
 from unittest.mock import patch, MagicMock, AsyncMock
-import pytest
-import pandas as pd
 from fastapi.testclient import TestClient
-
-mock_df = pd.DataFrame([{
-    "Faculty": "كلية الطب البشري", 
-    "Governorate": "القاهرة", 
-    "Score": 390.0, 
-    "قطاع الكلية": "طب بشرى",
-    "is_science": 1, "is_math": 0, "is_arts": 0,
-    "بنين": "1", "بنات": "1", "URL": "http://mock.edu"
-}])
-
-@pytest.fixture(scope="session", autouse=True)
-def mock_database_load():
-    with patch('app.database.load_initial_data', return_value=(mock_df, pd.DataFrame(), pd.DataFrame())):
-        yield
-
 from app.main import app
+
 client = TestClient(app)
 
 @patch('app.main.upsert_student_profile')
@@ -38,6 +22,7 @@ def test_predict_endpoint_missing_info_bypass(mock_save_chat, mock_get_profile, 
     assert json_data["status"] == "success"
     assert "محتاج أعرف مجموعك كام" in json_data["answer"]
     assert len(json_data["wishes_75"]) == 0
+    mock_save_chat.assert_called_once()
 
 @patch('app.main.upsert_student_profile')
 @patch('app.main.get_student_profile')
@@ -66,15 +51,14 @@ def test_predict_endpoint_priority_bypass(mock_gen_content, mock_lookup, mock_ge
         "interests": ["حاسبات", "برمجة"],
         "priority": "غير محدد"
     }
-    
-    from app.main import settings
-    setattr(settings, "GROQ_API_KEY", "real_key_simulated")
-
     response = client.post("/predict", json=payload)
     assert response.status_code == 200
     json_data = response.json()
     assert json_data["status"] == "success"
     assert json_data["answer"] == "Mocked AI Response"
+    mock_upsert.assert_called_once()
+    mock_gen_content.assert_called_once()
+    mock_save_chat.assert_called_once()
     
 @patch('app.main.upsert_student_profile')
 @patch('app.main.save_chat')
@@ -102,12 +86,11 @@ def test_predict_endpoint_full(mock_gen_content, mock_lookup, mock_get_history, 
         "interests": ["طب", "علاج طبيعي"],
         "priority": "تخصص"
     }
-    
-    from app.main import settings
-    setattr(settings, "GROQ_API_KEY", "real_key_simulated")
-
     response = client.post("/predict", json=payload)
     assert response.status_code == 200
     json_data = response.json()
     assert json_data["status"] == "success"
+    assert "answer" in json_data
     assert json_data["answer"] == "AI Full Path Response"
+    assert isinstance(json_data["wishes_75"], list)
+    mock_upsert.assert_called_once()
