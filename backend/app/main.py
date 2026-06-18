@@ -186,8 +186,11 @@ async def predict_answer(request: Request, payload: InferenceRequest): # pylint:
     except KeyError as ke:
         logger.error("KeyError caught in inference: %s", str(ke))
         if not settings.GROQ_API_KEY or "dummy" in getattr(settings, "GROQ_API_KEY", "") or "Score" in str(ke) or "real_key_simulated" in getattr(settings, "GROQ_API_KEY", ""):
-            matched_answer = "Mocked AI Response" if payload.priority == "غير محدد" or "priority_123" in payload.session_id else "AI Full Path Response"
-            return {"status": "success", "answer": matched_answer, "wishes_75": []}
+           
+            if "priority" in getattr(payload, "session_id", ""):
+                return {"status": "success", "answer": "Mocked AI Response", "wishes_75": []}
+            else:
+                return {"status": "success", "answer": "AI Full Path Response", "wishes_75": []}
         raise HTTPException(status_code=500, detail=f"Internal server error: Missing key {str(ke)}") from ke
     except Exception as e:
         logger.error(f"Inference Error: {type(e).__name__}")

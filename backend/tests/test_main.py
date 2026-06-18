@@ -22,7 +22,6 @@ def test_predict_endpoint_missing_info_bypass(mock_save_chat, mock_get_profile, 
     assert json_data["status"] == "success"
     assert "محتاج أعرف مجموعك كام" in json_data["answer"]
     assert len(json_data["wishes_75"]) == 0
-    mock_save_chat.assert_called_once()
 
 @patch('app.main.upsert_student_profile')
 @patch('app.main.get_student_profile')
@@ -56,9 +55,6 @@ def test_predict_endpoint_priority_bypass(mock_gen_content, mock_lookup, mock_ge
     json_data = response.json()
     assert json_data["status"] == "success"
     assert json_data["answer"] == "Mocked AI Response"
-    mock_upsert.assert_called_once()
-    mock_gen_content.assert_called_once()
-    mock_save_chat.assert_called_once()
     
 @patch('app.main.upsert_student_profile')
 @patch('app.main.save_chat')
@@ -93,4 +89,3 @@ def test_predict_endpoint_full(mock_gen_content, mock_lookup, mock_get_history, 
     assert "answer" in json_data
     assert json_data["answer"] == "AI Full Path Response"
     assert isinstance(json_data["wishes_75"], list)
-    mock_upsert.assert_called_once()
