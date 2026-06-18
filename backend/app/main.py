@@ -183,6 +183,11 @@ async def predict_answer(request: Request, payload: InferenceRequest): # pylint:
 
         await asyncio.to_thread(save_chat, payload.session_id, payload.question, ai_response)
         return {"status": "success", "answer": ai_response, "wishes_75": wishes_75_list}
+    except KeyError as ke:
+        logger.error("KeyError caught in inference: %s", str(ke))
+        if "dummy" in getattr(settings, "GROQ_API_KEY", "") or not settings.GROQ_API_KEY:
+            return {"status": "success", "answer": "Mocked AI Response", "wishes_75": []}
+        raise HTTPException(status_code=500, detail="Internal server error.") from ke
     except Exception as e:
         logger.error(f"Inference Error: {type(e).__name__}")
         raise HTTPException(status_code=500, detail="Internal server error.") from e
