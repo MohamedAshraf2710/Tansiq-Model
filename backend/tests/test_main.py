@@ -1,4 +1,5 @@
 from unittest.mock import patch, MagicMock, AsyncMock
+import pytest
 import pandas as pd
 from fastapi.testclient import TestClient
 
@@ -11,9 +12,12 @@ mock_df = pd.DataFrame([{
     "بنين": "1", "بنات": "1", "URL": "http://mock.edu"
 }])
 
-with patch('app.database.load_initial_data', return_value=(mock_df, pd.DataFrame(), pd.DataFrame())):
-    from app.main import app
+@pytest.fixture(scope="session", autouse=True)
+def mock_database_load():
+    with patch('app.database.load_initial_data', return_value=(mock_df, pd.DataFrame(), pd.DataFrame())):
+        yield
 
+from app.main import app
 client = TestClient(app)
 
 @patch('app.main.upsert_student_profile')
